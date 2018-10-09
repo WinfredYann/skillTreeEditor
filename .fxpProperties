@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<fxpProperties abbreviated="false" authoringTool="Flex Builder" compiles="true" parentProject="b6160519-bc23-474a-8519-069275780ddd" projectUUID="b6160519-bc23-474a-8519-069275780ddd" pureCatalystProject="false" sdkVersion="4.9.1" uuid="c80269f1-17b6-4b1a-9530-c87aeb69ba69" version="15">
+  <projects/>
+  <src>
+    <linked isMain="false" location="${DOCUMENTS}/YannFlexUI/src" path="${DOCUMENTS}/YannFlexUI/src" position="0" uuid="c80269f1-17b6-4b1a-9530-c87aeb69ba69"/>
+  </src>
+  <swc>
+    <linked location="sdkPlaceHolder" path="sdkPlaceHolder" position="0" uuid="c80269f1-17b6-4b1a-9530-c87aeb69ba69"/>
+    <linked location="E:/project/dota/dota/sktEditor/libs" path="/libs" position="1" uuid="c80269f1-17b6-4b1a-9530-c87aeb69ba69"/>
+  </swc>
+  <misc/>
+  <theme/>
+  <mxmlFormattingPrefs groupAttributesByState="true" maxLineWidth="100" mxmlAlignAttributes="true" mxmlAttributeOrder="id,userLabel,includeIn,excludeFrom,visible,x,y,z,left,right,top,bottom,width,height,minWidth,minHeight,maxWidth,maxHeight,label" mxmlKeepAttributeValuesOrganized="true"/>
+</fxpProperties>

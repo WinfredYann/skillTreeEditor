@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+project: sktEditor
+@class: FunctionEditor.mxml
+@author: wangfuyuan
+@usage: 
+@since: 2018-10-5
+@modified: 2018-10-5
+@modifier: wangfuyuan
+-->
+<s:Panel xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="700" height="250" creationComplete="panel1_creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import data.FunctionProvider;
+			import data.SkillFunction;
+			
+			import mx.collections.ArrayCollection;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			import mx.events.ItemClickEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+			[Bindable]
+			private var _providers:ArrayCollection;
+			
+			protected function panel1_creationCompleteHandler(event:FlexEvent):void
+			{
+//				_providers = new ArrayCollection(getProvidersBy(rt));
+				if(_data != null){
+					this.refreshView();
+				}
+			}
+			
+			private var _data:SkillFunction;
+			private var _origData:SkillFunction;
+			private var _editData:SkillFunction;
+			
+			private var _parentPanel:FunctionEditor;
+			private var _cacheBaseValue:String;
+			
+			public function setData(skf:SkillFunction,parent:FunctionEditor,limit:String):void{
+				this._data = skf.copy();
+				this._origData = skf;
+				this._parentPanel = parent;
+				this.refreshView();
+			}
+			
+			protected function rd_group_itemClickHandler(e:ItemClickEvent):void
+			{
+				var v:String = String(e.item);
+				trace(v);
+				if(v == "f"){
+					_data.funcType = "func";
+					if(_cacheBaseValue != null){
+						_data.baseValue = _cacheBaseValue;
+					}
+				}else{
+					if(_data.returnType == "number"){
+						grp_value.addElement(numb_value);			
+					}
+					if(_data.returnType == "string" || _data.returnType=="any"){
+						_data.baseValue = "";
+					}
+					if(_data.returnType == "bool"){
+						_data.baseValue = "true";
+					}
+					_data.funcType = _data.returnType;
+				}
+				
+				refreshView();
+			}
+			
+			public function onCommit(skt:SkillFunction):void{
+				this._editData.funcType = skt.funcType;
+				this._editData.baseValue = skt.baseValue;
+				this._editData.params = skt.params;
+				this._editData.returnType = skt.returnType;
+				this.refreshView();
+			}
+			
+			public function onCommitSelf(skt:SkillFunction):void{
+				this._origData.funcType = skt.funcType;
+				this._origData.baseValue = skt.baseValue;
+				this._origData.params = skt.params;
+				this._origData.returnType = skt.returnType;
+				this.refreshView();
+			}
+			
+			
+			
+			private function refreshView():void
+			{
+				grp_value.removeAllElements();
+				//筛选函数
+				var rt:String = this._data.returnType;
+				if(!this._providers){
+					this._providers = new ArrayCollection();
+				}
+				this._providers.source = getProvidersBy(rt);
+				
+				var t:String = this._data.funcType;
+				if(t == "func"){
+					rd_group.selectedValue = "f";
+					grp_func.enabled = true;
+					grp_value.enabled = false;
+					lbl_func.htmlText = this._data.getExpression(2);
+					txt_value.text = "";
+					providerList.selectedItem = FunctionProvider.get(String(this._data.baseValue));
+					
+				}else{
+					rd_group.selectedValue = "v";
+					grp_func.enabled = false;
+					grp_value.enabled = true;
+					lbl_func.htmlText = "";
+					txt_value.text = String(this._data.baseValue);
+					providerList.selectedIndex = -1;
+					
+					
+					if(_data.returnType == "number"){
+						grp_value.addElement(numb_value);
+						numb_value.text = String(_data.baseValue);
+					}
+					if(_data.returnType == "string" || _data.returnType=="any"){
+						grp_value.addElement(txt_value);
+						txt_value.text = String(_data.baseValue);
+					}
+					if(_data.returnType == "bool"){
+						grp_value.addElement(chk_value);		
+						chk_value.selected = _data.baseValue == "true";
+					}
+				}
+				
+				if(this._data.returnType == "void"){
+					this.title = "选择一个可执行的函数";
+				}else{
+					this.title = "选择类型：" + this._data.returnType;
+				}
+				
+			}
+			
+			protected function lbl_func_linkHandler(e:TextEvent):void
+			{
+				var id:Number = parseInt(e.text);
+				var params:Array = this._data.params;
+				for (var i:int = 0; i < params.length; i++) 
+				{
+					var p:SkillFunction = params[i];
+					if(p.hashCode == id){
+						_editData = p;
+						sktEditor.Ins.pushEditor(p,this,this._data.returnType);
+					}
+				}
+				
+			}
+			
+			protected function combLableFunc(item:Object):String
+			{
+				var p:FunctionProvider = item as FunctionProvider;
+				return p.desc;
+			}
+			
+			protected function providerList_changeHandler(event:IndexChangeEvent):void
+			{
+				var p:FunctionProvider = providerList.selectedItem as FunctionProvider;
+				if(p != null){
+					this._data.baseValue = p.funcName;
+					var len:Number = p.paramList.length;
+					for (var i:int = 0; i < len; i++) 
+					{
+						if(i >= this._data.params.length){
+							this._data.params[i] = SkillFunction.createDefaultValue(p.paramList[i]);
+						}
+					}
+					this.refreshView();
+				}
+			}
+			
+			protected function onClickOK(event:MouseEvent):void
+			{
+				// todo 
+				if(this._data.funcType != "func"){
+					
+					if(_data.returnType == "number"){
+						this._data.baseValue = Number(numb_value.text);		
+					}
+					if(_data.returnType == "string" || _data.returnType=="any"){
+						this._data.baseValue = txt_value.text;			
+					}
+					if(_data.returnType == "bool"){
+						this._data.baseValue = chk_value.selected ? "true":"false";		
+					}
+				}
+				if(this._parentPanel){
+					this._parentPanel.onCommit(this._data);
+				}else{
+					this.onCommitSelf(this._data);
+				}
+				
+				sktEditor.Ins.pop();
+			}
+			
+			protected function onClickCancel(event:MouseEvent):void
+			{
+				sktEditor.Ins.pop();
+			}
+			
+			protected function tagChange(event:IndexChangeEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+			private function getProvidersBy(rt:String):Array
+			{
+				var res:Array = [];
+				var all:Array = FunctionProvider.Providers;
+				for (var i:int = 0; i < all.length; i++) 
+				{
+					var p:FunctionProvider = all[i];
+					if(rt == "void"){
+						if(p.returnType == rt){
+							res.push(p);
+						}
+					}else{
+						if(p.returnType == rt || p.returnType == "any"){
+							res.push(p);
+						}
+					}
+				}
+				return res;
+			}
+			
+			protected function onNumberChange(e:Event):void
+			{
+				numb_value.text = String(e["text"]);
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:RadioButtonGroup id="rd_group" itemClick="rd_group_itemClickHandler(event)"/>
+		
+		<s:ArrayCollection id="tagProvider">
+			<fx:Object item="全部" tag="all" />
+			<fx:Object item="算数运算" tag="math" />
+		</s:ArrayCollection>
+	</fx:Declarations>
+	<s:VGroup width="100%" top="5" left="5">
+		<s:HGroup left="10">
+			<s:RadioButton width="100" id="rd_func" label="表达式:" group="{rd_group}" value="f"/>
+			<s:VGroup id="grp_func">
+				<s:HGroup>
+					<s:Label width="50" text="筛选："/>
+					<s:DropDownList id="tagList" width="150" dataProvider="{tagProvider}" labelField="item" change="tagChange(event)"/>
+				</s:HGroup>
+				<s:HGroup>
+					<s:Label width="50" text="函数："/>
+					<s:DropDownList id="providerList" width="150" dataProvider="{_providers}" labelFunction="combLableFunc" change="providerList_changeHandler(event)"/>
+				</s:HGroup>
+				<s:BorderContainer>
+					<mx:Label id="lbl_func" text="null" width="560" minHeight="100" selectable="true" link="lbl_func_linkHandler(event)"/>
+					<s:Label bottom="5" id="lbl_note" color="#cccccc" text="这里是函数的相关使用说明，可能没有"/>
+				</s:BorderContainer>
+			</s:VGroup>
+		</s:HGroup>
+		<s:HGroup left="10">
+			<s:RadioButton width="100" id="rd_value" label="值:" group="{rd_group}" value="v"/>
+			<s:VGroup id="grp_value">
+				<s:TextInput id="txt_value" width="500"/>
+				<s:TextInput id="numb_value" width="100"  restrict="0-9.\-"/>
+				<s:CheckBox id="chk_value" label="true"/>
+			</s:VGroup>
+		</s:HGroup>
+		<s:Group width="100%">
+			<s:HGroup right="10">
+				<s:Button label="OK" click="onClickOK(event)"/>
+				<s:Button label="Cancel" click="onClickCancel(event)"/>
+			</s:HGroup>
+		</s:Group>
+	</s:VGroup>
+</s:Panel>

@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx" creationComplete="initPanel(event)" enterFrame="windowedapplication1_enterFrameHandler(event)" xmlns:local="*" xmlns:data="data.*">
+	<fx:Script>
+		<![CDATA[
+			import data.FunctionProvider;
+			import data.NodeIO;
+			import data.NodeType;
+			import data.SkillFunction;
+			import data.SkillNode;
+			import data.SkillTree;
+			
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.core.UIComponent;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			
+			import org.yann.event.MyIOEvent;
+			import org.yann.main.YannMain;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.events.TextOperationEvent;
+			private var m_scrollContent:Sprite;
+			private static var MAX_WIDTH:int = 1920*2;
+			private static var MAX_HEIGHT:int = 1080*2;
+			
+			private var tree:SkillTree;
+			private var draw:Drawer;
+			
+			[Embed("assets/provider.json", mimeType="application/octet-stream")]
+			public static var providerJson:Class;
+			
+			public static var Ins:sktEditor;
+			
+			protected function initPanel(event:FlexEvent):void
+			{
+//				var container:UIComponent = new UIComponent();
+//				container.height = container.width = 2000;
+//				view.addElementAt(container,0);
+				Ins = this;
+				
+				zoomSlider.mouseFocusEnabled = false;
+				
+				FunctionProvider.fromJson(new providerJson());
+				
+				var t = this.tree;
+				t = new SkillTree()
+				t.root = new SkillNode();
+				var node = t.root;
+				for (var i = 0; i < 15; i++) {
+					var right = Math.random() > .5 ;
+					var newNode = new SkillNode();
+					var newRight;
+					node.addNode(newNode,0)
+					if(right){
+						newRight = new SkillNode()
+						node.addNode(newRight,1)
+						node = Math.random()>.5 ? newNode : newRight;
+					}else{
+						node = newNode;
+					}
+				}
+				
+				var draw:Drawer = new Drawer(t);
+				draw.draw();
+				this.draw = draw;
+				
+//				draw.x = (view.width - draw.width )/2;
+//				draw.y = ( view.height - draw.height )/2;
+				view.addElement(draw);
+				this.tree = t;
+				
+				this.draw.addEventListener("selectNode",onSelected);
+				
+				callLater(function():void{
+					scroller.horizontalScrollBar.value = scroller.horizontalScrollBar.maximum / 2;
+					scroller.horizontalScrollBar.validateNow();
+					lbl_action.mx_internal::getTextField().wordWrap = true;
+					lbl_codePreview.mx_internal::getTextField().wordWrap = true;
+					panel_code.visible = false;
+					grpNodeContent.removeAllElements();
+					onSelected(null);
+				});
+			}
+			
+			
+			
+			protected function addBtn_clickHandler(event:MouseEvent):void
+			{
+//				var json = JSON.stringify(this.tree);
+//				trace(json);
+				var json:String = NodeIO.writeAsJson(this.draw.skt);
+				trace(json);
+			}
+			
+			protected function onSelected(event:Event):void
+			{
+				var node:SkillNode = this.draw.selectedNode;
+				if(node != null){
+					btnAddLeft.enabled = node.leftChild == null;
+					btnAddRight.enabled = node.rightChild == null;
+					btnDelSaveLeft.enabled = node.leftChild != null;
+					btnDelSaveRight.enabled = node.rightChild != null;
+					txt_NodeId.text = node.id.toString();
+					txt_NodeName.text = node.name;
+						
+					comb_types.selectedItem = getItemBy(node.nodeType);
+					onNodeTypeChange(null);
+					
+					drawActionText();
+				}
+				
+				function getItemBy(t:Number):Object{
+					var arr:Array = NodeTypeArr.source;
+					for (var i:int = 0; i < arr.length; i++) 
+					{
+						var o:* = arr[i];
+						if(o.value == t){
+							return o;
+						}
+					}
+					return null;
+				}
+			}
+			
+			
+			
+			protected function windowedapplication1_enterFrameHandler(event:Event):void
+			{
+				// TODO Auto-generated method stub
+//				var vb = scroller.verticalScrollBar;
+			}
+			
+			protected function onNameTxtChange(event:TextOperationEvent):void
+			{
+				var node = this.draw.selectedNode;
+				if(node != null){
+					node.name = txt_NodeName.text;
+					this.draw.draw();
+				}
+			}
+			
+			protected function onAddLeft(event:MouseEvent):void
+			{
+				var node:SkillNode = this.draw.selectedNode;
+				if(node != null){
+					node.addNode(new SkillNode(),0);
+					onSelected(null);
+				}
+			}
+			
+			protected function onAddRight(event:MouseEvent):void
+			{
+				var node:SkillNode = this.draw.selectedNode;
+				if(node != null){
+					node.addNode(new SkillNode(),1);
+					onSelected(null);
+				}
+			}
+			
+			protected function onDelSaveRight(event:MouseEvent):void
+			{
+				const that:sktEditor = this;
+				Alert.show("确定删除？","提示",Alert.OK|Alert.CANCEL,null,function(d:CloseEvent):void{
+					if(d.detail == Alert.OK){
+						var node:SkillNode = that.draw.selectedNode;
+						if(node != null){
+							if(node.parent != null && node.rightChild != null){
+								node.parent.addNode(node.rightChild,node.pos);
+		//						this.draw.draw();
+								onSelected(null);
+							}else{
+								node.rightChild.parent = null;
+								that.tree.root = node.rightChild;
+								onSelected(null);
+							}
+						}
+					}
+				});
+			}
+			
+			protected function onDelSaveLeft(event:MouseEvent):void
+			{
+				const that:sktEditor = this;
+				Alert.show("确定删除？","提示",Alert.OK|Alert.CANCEL,null,function(d:CloseEvent):void{
+					if(d.detail == Alert.OK){
+						var node:SkillNode = that.draw.selectedNode;
+						if(node != null){
+							if(node.parent != null && node.leftChild != null){
+								node.parent.addNode(node.leftChild,node.pos);
+		//						this.draw.draw();
+								that.onSelected(null);
+							}else{
+								node.leftChild.parent = null;
+								that.tree.root = node.leftChild;
+								onSelected(null);
+							}
+						}
+					}
+				});
+			}
+			
+			protected function onDelWithChildren(event:MouseEvent):void
+			{
+				const that:sktEditor = this;
+				Alert.show("确定删除？","提示",Alert.OK|Alert.CANCEL,null,function(d:CloseEvent):void{
+					if(d.detail == Alert.OK){
+						var node:SkillNode = that.draw.selectedNode;
+						if(node != null){
+							if(node.parent != null){
+								node.parent.removeNode(node);
+		//						this.draw.draw();
+								that.onSelected(null);
+							}
+						}
+					}
+				});
+			}
+			
+			protected function onNodeTypeChange(event:IndexChangeEvent):void
+			{
+				var t:Number = comb_types.selectedItem.value;
+				var node:SkillNode = this.draw.selectedNode;
+				if(!node){
+					return;
+				}
+				if(grpAction.parent != null){
+					grpNodeAtt.removeElement(grpAction);
+				}
+				grpNodeContent.removeAllElements();
+				switch(t){
+					case NodeType.Default:
+						grpNodeAtt.addElement(grpAction);
+						break;
+					case NodeType.IF:
+						grpNodeContent.addElement(node_if);
+						lbl_if_condition.htmlText = node.ifCondition.getExpression(1);
+						break;
+					case NodeType.Selector:
+						grpNodeContent.addElement(node_select);
+						lbl_selector_filter.htmlText = node.filterCondition.getExpression(1);
+						break;
+					case NodeType.For:
+						grpNodeContent.addElement(node_for);
+						lbl_for_name.htmlText = node.forName.getExpression(1);
+						lbl_for_start.htmlText = node.forStart.getExpression(1);
+						lbl_for_end.htmlText = node.forEnd.getExpression(1);
+						lbl_for_step.htmlText = node.forStep.getExpression(1);
+						break;
+					case NodeType.Delay:
+						grpNodeContent.addElement(node_delay);
+						lbl_selectordelay.htmlText = node.delay.getExpression(1);
+						break;
+				}
+				node.nodeType = t;
+				var note:String = comb_types.selectedItem.desc;
+				lbl_node_note.text = note;
+				this.draw.draw();
+			}
+			
+			private function drawActionText():void{
+				var ac:SkillFunction = this.draw.selectedNode.action;
+				lbl_action.htmlText = ac.getExpression(1);
+			}
+			
+			protected function lbl_action_linkHandler(e:TextEvent):void
+			{
+				trace(e.text);
+				var t:Object = e.currentTarget;
+				switch(t)
+				{
+					case lbl_action:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.action;
+						this.pushEditor(ac,null,"void");
+						break;
+					}
+					case lbl_if_condition:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.ifCondition;
+						this.pushEditor(ac,null,"bool");
+						break;
+					}
+					case lbl_selector_filter:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.filterCondition;
+						this.pushEditor(ac,null,"bool");
+						break;
+					}
+					case lbl_selectordelay:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.delay;
+						this.pushEditor(ac,null,"number");
+						break;
+					}
+					case lbl_for_name:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.forName;
+						this.pushEditor(ac,null,"string");
+						break;
+					}
+					case lbl_for_start:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.forStart;
+						this.pushEditor(ac,null,"number");
+						break;
+					}
+					case lbl_for_end:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.forEnd;
+						this.pushEditor(ac,null,"number");
+						break;
+					}
+					case lbl_for_step:
+					{
+						var ac:SkillFunction = this.draw.selectedNode.forStep;
+						this.pushEditor(ac,null,"number");
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+				
+			}
+			
+			
+			//**************** pop ***********************
+			
+			private var _popStack:Array = [];
+			
+			public function pushEditor(skf:SkillFunction,p:FunctionEditor,limit:String):void{
+				var e:FunctionEditor = new FunctionEditor();
+				e.initialize();
+				popPanel.addElement(e);
+				var len:Number = _popStack.length;
+				popPanel.addElement(e);
+				e.x = len * 20 + 100;
+				e.y = len * 20 + 100;
+				e.setData(skf,p,limit);
+				_popStack.push(e);
+				popPanel.visible = true;
+			}
+			
+			public function pop():void{
+				var p:UIComponent = _popStack.pop();
+				popPanel.removeElement(p);
+				if(_popStack.length == 0){
+					popPanel.visible = false;
+					this.onSelected(null);
+				}
+			}
+			
+			protected function onClickSave(event:MouseEvent):void
+			{
+				const that:sktEditor = this;
+				if(draw.hasNull){
+					Alert.show("发现有节点存在未配置的字段，是否继续保存？","",Alert.OK|Alert.CANCEL,null,function(d:CloseEvent):void{
+						if(d.detail == Alert.OK){
+							that.save();
+						}
+					});
+				}else{
+					save();
+				}
+			}
+			
+			private function save():void{
+				if(!YannMain.ins.hasEventListener(MyIOEvent.FILE_SAVE_COMPLETE)){
+					YannMain.ins.addEventListener(MyIOEvent.FILE_SAVE_COMPLETE,onSaveComp);
+				}
+				var json:String = NodeIO.writeAsJson(this.draw.skt);
+				YannMain.ins.ioManager.save(json,"json","skillTree");
+				function onSaveComp():void{
+					YannMain.ins.removeEventListener(MyIOEvent.FILE_SAVE_COMPLETE,onSaveComp);
+					Alert.show("保存成功！");
+				}
+			}
+			
+			protected function onClickOpen(event:MouseEvent):void
+			{
+				YannMain.ins.ioManager.selectFile("open tree",function(e:Event):void{
+					var f:File = e.target as File;
+					var loader:URLLoader = new URLLoader();
+					loader.addEventListener(Event.COMPLETE,onLoadComplete);
+					loader.load(new URLRequest(f.nativePath));
+				});
+				
+			}
+			
+			protected function onLoadComplete(e:Event):void
+			{
+				var tree:SkillTree = NodeIO.readFromJson(e.target.data);
+				this.draw.skt = tree;
+				this.draw.draw();
+				new XMLListCollection
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{				
+				panel_code.visible = false;
+			}
+			
+			protected function onClickCode(event:MouseEvent):void
+			{
+				panel_code.visible = true;
+				lbl_codePreview.htmlText = draw.skt.root.toCode(0);
+			}
+			
+			protected function onClickNew(event:MouseEvent):void
+			{
+				Alert.show("新建一个树，这会覆盖当前的数据？","",Alert.OK|Alert.CANCEL,null,function(d:CloseEvent):void{
+					if(d.detail == Alert.OK){
+						this.tree = new SkillTree()
+						this.tree.root = new SkillNode();
+						draw.skt = this.tree;
+						draw.draw();
+					}
+				});
+			}
+			
+		]]>
+	</fx:Script>
+	<s:HGroup id="mainContainer" left="10" right="10" top="10" bottom="10" >
+	<!--<s:Panel  width="20%" height="100%" title="目录结构" >
+		<mx:Tree width="100%" height="100%">
+			
+		</mx:Tree>
+	</s:Panel>-->
+	<s:BorderContainer id="borderContainer" width="100%" height="100%" alpha="1.0" borderStyle="solid">
+		
+		<s:VSlider id="zoomSlider" x="28" y="48"  liveDragging="true"
+				   maximum="1.5" minimum="0.5" stepSize="0.1" value="1"/>
+		<s:Label x="10" y="48" fontFamily="Courier New" fontSize="18" text="+"/>
+		<s:Label x="10" y="138" fontFamily="Courier New" fontSize="18" text="-"/>
+		<s:Label x="7" y="95" fontFamily="Courier New" fontSize="10" text="1.0"/>
+		
+		<s:Scroller id="scroller" x="0" y="0" width="100%" height="75%">
+			<s:Group  id="view" width="100%" height="100%" fontWeight="normal" fontSize="10" verticalScrollPosition="0.5">
+			</s:Group>
+		</s:Scroller>
+		
+		
+		
+		<s:Panel title="节点属性" width="100%" bottom="0" height="25%">
+			<s:Rect  width="100%" height="100%">
+				<s:fill>
+					<s:SolidColor color="#eeeeee" alpha="0.8"/>
+				</s:fill>
+			</s:Rect>
+			<s:VGroup id="grpNodeAtt" bottom="10" left="10" right="10" top="10" gap="5">
+					<s:HGroup verticalAlign="middle">
+						<s:Label text="类型:" width="50"/>
+						<s:DropDownList id="comb_types" width="180" dataProvider="{NodeTypeArr}" labelField="name" change="onNodeTypeChange(event)"/>
+							<s:Label id="lbl_node_note" text="" color="#50910A" />
+					</s:HGroup>
+				
+					<s:VGroup id="grpNodeContent" paddingLeft="10">
+						<!-- if node -->
+						<s:HGroup id="node_if" verticalAlign="middle">
+							<s:Label text="条件:"/>
+							<mx:Label id="lbl_if_condition" text="true" link="lbl_action_linkHandler(event)" selectable="true"/>
+						</s:HGroup>
+						
+						<!-- selected node -->
+						<s:HGroup id="node_select" verticalAlign="middle">
+							<s:Label text="筛选条件:"/>
+							<mx:Label id="lbl_selector_filter" text="true" link="lbl_action_linkHandler(event)" selectable="true"/>
+						</s:HGroup>
+						
+						<!-- for node -->
+						<s:HGroup id="node_for" verticalAlign="middle">
+							<s:Label text="For 变量名称 = "/>
+							<mx:Label id="lbl_for_name" htmlText="i" link="lbl_action_linkHandler(event)" selectable="true"/>
+							<s:Label text="起始:"/>
+							<mx:Label id="lbl_for_start" htmlText="0" link="lbl_action_linkHandler(event)" selectable="true"/>
+							<s:Label text="结束:"/>
+							<mx:Label id="lbl_for_end" htmlText="1" link="lbl_action_linkHandler(event)" selectable="true"/>
+							<s:Label text="步长:"/>
+							<mx:Label id="lbl_for_step" htmlText="1" link="lbl_action_linkHandler(event)" selectable="true"/>
+						</s:HGroup>
+						
+						<s:HGroup id="node_delay" verticalAlign="middle">
+							<s:Label text="延迟（ms）:"/>
+							<mx:Label id="lbl_selectordelay" text="0" link="lbl_action_linkHandler(event)" selectable="true"/>
+						</s:HGroup>
+						</s:VGroup>
+				
+				
+				
+				<s:HGroup verticalAlign="middle" width="100%">
+					<s:Label text="注释:" width="50"/>
+					<s:TextInput id="txt_NodeName" width="90%" change="onNameTxtChange(event)"/>
+				</s:HGroup>
+				
+				<s:HGroup id="grpAction" verticalAlign="middle">
+					<s:Label text="执行:" width="50"/>
+					<mx:Label id="lbl_action"  text="" link="lbl_action_linkHandler(event)" selectable="true"/>
+				</s:HGroup>
+				
+			</s:VGroup>
+		</s:Panel>
+		
+		<s:VGroup>
+			<s:Button id="btnNew" x="10" y="10" width="100" height="30" label="新建" click="onClickNew(event)"
+					  fontFamily="Courier New" fontSize="12">
+			</s:Button>
+			<s:Button id="btnOpen" x="10" y="10" width="100" height="30" label="打开" click="onClickOpen(event)"
+					  fontFamily="Courier New" fontSize="12">
+			</s:Button>
+			<s:Button id="btnSave" x="10" y="10" width="100" height="30" label="保存" click="onClickSave(event)"
+					  fontFamily="Courier New" fontSize="12">
+			</s:Button>
+			<s:Button id="btnCode" x="10" y="10" width="100" height="30" label="代码" click="onClickCode(event)"
+					  fontFamily="Courier New" fontSize="12">
+			</s:Button>
+			
+			<s:HGroup verticalAlign="middle" left="10">
+				<s:Rect width="50" height="20">
+					<s:fill>
+						<s:SolidColor color="{Drawer.COLOR_DEFAULT}" alpha="1"/>
+					</s:fill>
+				</s:Rect>
+				<s:Label width="50" height="18" text="默认节点" />
+			</s:HGroup>
+			<s:HGroup verticalAlign="middle" left="10">
+				<s:Rect width="50" height="20">
+					<s:fill>
+						<s:SolidColor color="{Drawer.COLOR_Selector}" alpha="1"/>
+					</s:fill>
+				</s:Rect>
+				<s:Label width="50" height="18" text="选择节点" />
+			</s:HGroup>
+			<s:HGroup verticalAlign="middle" left="10">
+				<s:Rect width="50" height="20">
+					<s:fill>
+						<s:SolidColor color="{Drawer.COLOR_IF}" alpha="1"/>
+					</s:fill>
+				</s:Rect>
+				<s:Label width="50" height="18" text="条件节点" />
+			</s:HGroup>
+			<s:HGroup verticalAlign="middle" left="10">
+				<s:Rect width="50" height="20">
+					<s:fill>
+						<s:SolidColor color="{Drawer.COLOR_For}" alpha="1"/>
+					</s:fill>
+				</s:Rect>
+				<s:Label width="50" height="18" text="循环节点" />
+			</s:HGroup>
+			<s:HGroup verticalAlign="middle" left="10">
+				<s:Rect width="50" height="20">
+					<s:fill>
+						<s:SolidColor color="{Drawer.COLOR_Delay}" alpha="1"/>
+					</s:fill>
+				</s:Rect>
+				<s:Label width="50" height="18" text="延迟节点" />
+			</s:HGroup>
+			
+			
+		</s:VGroup>
+		<s:VGroup width="170" right="25">
+			<s:Panel title="节点操作" width="100%">
+				<s:VGroup id="grpOperation" bottom="10" left="10" right="10" top="10">
+					<s:Label text="id:"/>
+					<s:TextInput id="txt_NodeId" editable="false" enabled="false"/>
+					<s:Button id="btnAddLeft" width="130" label="添加-左节点" click="onAddLeft(event)"/>
+					<s:Button id="btnAddRight" width="130" label="添加-右节点" click="onAddRight(event)"/>
+					<s:Button id="btnDelWithChildren" width="130" label="删除-包含子节点" click="onDelWithChildren(event)"/>
+					<s:Button id="btnDelSaveLeft" width="130" label="删除-保留左" click="onDelSaveLeft(event)"/>
+					<s:Button id="btnDelSaveRight" width="130" label="删除-保留右" click="onDelSaveRight(event)"/>
+				</s:VGroup>
+			</s:Panel>
+			<!--<s:Panel title="节点编辑" width="100%">
+				<s:VGroup id="grpEditor" bottom="10" left="10" right="10" top="10">
+					<s:Label text="name:"/>
+				</s:VGroup>
+			</s:Panel>-->
+
+		</s:VGroup>
+		
+		<s:Panel id="panel_code" title="代码预览" width="800" height="600" horizontalCenter="0" verticalCenter="0" >
+			<s:Rect width="100%" height="100%">
+				<s:fill>
+					<s:SolidColor color="#eeeeee" alpha="0.8"/>
+				</s:fill>
+			</s:Rect>
+			<s:Scroller id="code_scroller" x="0" y="0" left="10" right="10" top="10" bottom="10">
+				<s:Group  width="100%" height="100%" fontWeight="normal" fontSize="10" verticalScrollPosition="0.5">
+					<mx:Label id="lbl_codePreview" width="100%" height="100%"/>
+					<s:Button label="OK" horizontalCenter="0" bottom="20" click="button1_clickHandler(event)"/>
+				</s:Group>
+			</s:Scroller>
+		</s:Panel>
+	</s:BorderContainer>
+	</s:HGroup>
+	
+	<!-- pop panel -->
+	<s:Group id="popPanel" width="100%" height="100%" visible="false">
+		<s:Rect id="rect" width="100%" height="100%">
+			<s:fill>
+				<s:SolidColor color="#000000" alpha="0.3"/>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:ArrayCollection id="NodeTypeArr">
+			<fx:Object value="0" name="默认节点" desc="(普通顺序执行的节点，直接往left执行)" />
+			<fx:Object value="1" name="选择器节点" desc="(从游戏数据源选取满足筛选条件的单位组，遍历他们，执行right子节点，遍历完后往left执行)" />
+			<fx:Object value="2" name="条件节点（if）" desc="(判断当前节点的条件，满足往left，否则往right)" />
+			<fx:Object value="3" name="循环节点（for）" desc="(循环执行right，直到条件满足)" />
+			<fx:Object value="4" name="延迟节点" desc="(延迟指定时间后，执行left)" />
+		</s:ArrayCollection>
+	</fx:Declarations>
+</s:WindowedApplication>
