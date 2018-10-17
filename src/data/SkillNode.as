@@ -314,7 +314,7 @@ package data
 		
 		public static function fromJson(json:*):SkillNode{
 			var node:SkillNode = new SkillNode();
-			node.id = json["id"];
+//			node.id = json["id"];
 			node.name = json["name"];
 			node.nodeType = json["nodeType"];
 			if(json["action"] != null){

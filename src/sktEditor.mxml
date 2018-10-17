@@ -211,7 +211,6 @@
 						if(node != null){
 							if(node.parent != null){
 								node.parent.removeNode(node);
-		//						this.draw.draw();
 								that.onSelected(null);
 							}
 						}
@@ -396,7 +395,7 @@
 				var tree:SkillTree = NodeIO.readFromJson(e.target.data);
 				this.draw.skt = tree;
 				this.draw.draw();
-				new XMLListCollection
+				txtTreeName.text = tree.name;
 			}
 			
 			protected function button1_clickHandler(event:MouseEvent):void
@@ -420,6 +419,15 @@
 						draw.draw();
 					}
 				});
+			}
+			
+			protected function onTreeNameChange(event:TextOperationEvent):void
+			{
+				var t:SkillTree = this.draw.skt;
+				if(t != null){
+					t.name = txtTreeName.text;
+					onSelected(null);
+				}
 			}
 			
 		]]>
@@ -505,6 +513,7 @@
 		</s:Panel>
 		
 		<s:VGroup>
+			<s:TextInput width="100" id="txtTreeName" change="onTreeNameChange(event)"/>
 			<s:Button id="btnNew" x="10" y="10" width="100" height="30" label="新建" click="onClickNew(event)"
 					  fontFamily="Courier New" fontSize="12">
 			</s:Button>
